@@ -358,6 +358,9 @@ function locStart$1(node) {
   if (node.source) {
     return lineColumnToIndex(node.source.start, node.source.input.css) - 1;
   }
+  if (node.loc) {
+    return node.loc.start;
+  }
 }
 
 function locEnd$1(node) {
@@ -376,6 +379,11 @@ function locEnd$1(node) {
   if (node.typeAnnotation) {
     return Math.max(loc, locEnd$1(node.typeAnnotation));
   }
+
+  if (node.loc && !loc) {
+    return node.loc.end;
+  }
+
   return loc;
 }
 
@@ -537,7 +545,7 @@ function getSortedChildNodes(node, text, resultArray) {
   }
 
   if (resultArray) {
-    if (node && node.type && node.type !== "CommentBlock" && node.type !== "CommentLine" && node.type !== "Line" && node.type !== "Block" && node.type !== "EmptyStatement" && node.type !== "TemplateElement") {
+    if (node && (node.type && node.type !== "CommentBlock" && node.type !== "CommentLine" && node.type !== "Line" && node.type !== "Block" && node.type !== "EmptyStatement" && node.type !== "TemplateElement" || node.kind && node.kind !== "Comment")) {
       // This reverse insertion sort almost always takes constant
       // time because we almost always (maybe always?) append the
       // nodes in order anyway.
@@ -693,7 +701,7 @@ function attach(comments, ast, text) {
         addDanglingComment(ast, comment);
       }
     } else {
-      if (handleIfStatementComments(text, precedingNode, enclosingNode, followingNode, comment) || handleObjectPropertyAssignment(enclosingNode, precedingNode, comment) || handleCommentInEmptyParens(text, enclosingNode, comment) || handleOnlyComments(enclosingNode, ast, comment, isLastComment)) {
+      if (handleIfStatementComments(text, precedingNode, enclosingNode, followingNode, comment) || handleObjectPropertyAssignment(enclosingNode, precedingNode, comment) || handleCommentInEmptyParens(text, enclosingNode, comment) || handleMethodNameComments(enclosingNode, precedingNode, comment) || handleOnlyComments(enclosingNode, ast, comment, isLastComment)) {
         // We're good
       } else if (precedingNode && followingNode) {
         // Otherwise, text exists both before and after the comment on
@@ -920,6 +928,17 @@ function handleObjectPropertyAssignment(enclosingNode, precedingNode, comment) {
   return false;
 }
 
+function handleMethodNameComments(enclosingNode, precedingNode, comment) {
+  // This is only needed for estree parsers (flow, typescript) to attach
+  // after a method name:
+  // obj = { fn /*comment*/() {} };
+  if (enclosingNode && precedingNode && (enclosingNode.type === "Property" || enclosingNode.type === "MethodDefinition") && precedingNode.type === "Identifier" && enclosingNode.key === precedingNode) {
+    addTrailingComment(precedingNode, comment);
+    return true;
+  }
+  return false;
+}
+
 function handleCommentInEmptyParens(text, enclosingNode, comment) {
   if (getNextNonSpaceNonCommentCharacter(text, comment) !== ")") {
     return false;
@@ -1089,7 +1108,9 @@ function printComment(commentPath, options) {
   var comment = commentPath.getValue();
   comment.printed = true;
 
-  switch (comment.type) {
+  switch (comment.type || comment.kind) {
+    case "Comment":
+      return "#" + comment.value;
     case "CommentBlock":
     case "Block":
       return "/*" + comment.value + "*/";
@@ -1205,7 +1226,7 @@ function printDanglingComments(path$$1, options, sameIndent) {
 }
 
 function prependCursorPlaceholder(path$$1, options, printed) {
-  if (path$$1.getNode() === options.cursorNode) {
+  if (path$$1.getNode() === options.cursorNode && path$$1.getValue()) {
     return concat([cursor, printed]);
   }
   return printed;
@@ -1254,16 +1275,16 @@ var comments$1 = {
   getSortedChildNodes: getSortedChildNodes
 };
 
-var name = "prettier";
+var name = "@oigroup/prettier-babylon";
 var version$1 = "1.4.4";
-var description = "Prettier is an opinionated JavaScript formatter";
+var description = "Prettier is an opinionated JavaScript formatter. Prettier-babylon is prettier with just Babylon as the parser.";
 var bin = { "prettier": "./bin/prettier.js" };
 var repository = "prettier/prettier";
 var author = "James Long";
 var license = "MIT";
 var main = "./index.js";
-var dependencies = {};
-var devDependencies = { "babel-cli": "6.24.1", "babel-code-frame": "7.0.0-alpha.12", "babel-preset-es2015": "6.24.1", "babylon": "7.0.0-beta.10", "chalk": "1.1.3", "cross-spawn": "5.1.0", "diff": "3.2.0", "eslint": "3.19.0", "eslint-plugin-prettier": "2.1.1", "esutils": "2.0.2", "flow-parser": "0.47.0", "get-stdin": "5.0.1", "glob": "7.1.2", "graphql": "0.10.1", "jest": "20.0.0", "jest-validate": "20.0.3", "minimist": "1.2.0", "mkdirp": "^0.5.1", "parse5": "3.0.2", "postcss": "^6.0.1", "postcss-less": "^1.0.0", "postcss-media-query-parser": "0.2.3", "postcss-scss": "1.0.0", "postcss-selector-parser": "2.2.3", "postcss-values-parser": "git://github.com/shellscape/postcss-values-parser.git#5e351360479116f3fe309602cdd15b0a233bc29f", "prettier": "1.4.2", "rimraf": "2.6.1", "rollup": "0.41.1", "rollup-plugin-commonjs": "7.0.0", "rollup-plugin-json": "2.1.0", "rollup-plugin-node-builtins": "2.0.0", "rollup-plugin-node-globals": "1.1.0", "rollup-plugin-node-resolve": "2.0.0", "rollup-plugin-replace": "1.1.1", "typescript": "2.3.4", "typescript-eslint-parser": "git://github.com/eslint/typescript-eslint-parser.git#806251524424e3ad91e750da0f76b8de25ed0b42", "uglify-es": "3.0.15", "webpack": "2.6.1" };
+var dependencies = { "babel-code-frame": "7.0.0-alpha.12", "babylon": "7.0.0-beta.10", "chalk": "1.1.3", "diff": "3.2.0", "esutils": "2.0.2", "get-stream": "3.0.0", "glob": "7.1.2", "graphql": "0.10.1", "jest-validate": "20.0.3", "json-to-ast": "2.0.0-alpha1.2", "minimist": "1.2.0", "postcss": "^6.0.1", "postcss-less": "^1.0.0", "postcss-media-query-parser": "0.2.3", "postcss-scss": "1.0.0", "postcss-selector-parser": "2.2.3", "postcss-values-parser": "git://github.com/shellscape/postcss-values-parser.git#5e351360479116f3fe309602cdd15b0a233bc29f" };
+var devDependencies = { "babel-cli": "6.24.1", "babel-preset-es2015": "6.24.1", "cross-spawn": "5.1.0", "eslint": "3.19.0", "eslint-plugin-prettier": "2.1.1", "jest": "20.0.0", "mkdirp": "^0.5.1", "prettier": "1.4.2", "rimraf": "2.6.1", "rollup": "0.41.1", "rollup-plugin-commonjs": "7.0.0", "rollup-plugin-json": "2.1.0", "rollup-plugin-node-builtins": "2.0.0", "rollup-plugin-node-globals": "1.1.0", "rollup-plugin-node-resolve": "2.0.0", "rollup-plugin-replace": "1.1.1", "sw-toolbox": "3.6.0", "uglify-es": "3.0.15", "webpack": "2.6.1" };
 var scripts = { "test": "jest", "test-integration": "jest tests_integration", "lint": "eslint .", "build": "./scripts/build/build.sh" };
 var jest = { "setupFiles": ["<rootDir>/tests_config/run_spec.js"], "snapshotSerializers": ["<rootDir>/tests_config/raw-serializer.js"], "testRegex": "jsfmt\\.spec\\.js$|__tests__/.*\\.js$", "testPathIgnorePatterns": ["tests/new_react", "tests/more_react"] };
 var _package = {
@@ -1607,7 +1628,7 @@ FastPath$1.prototype.needsParens = function (options) {
 
     case "TSParenthesizedType":
       {
-        if ((parent.type === "VariableDeclarator" || parent.type === "TypeAnnotation" || parent.type === "GenericTypeAnnotation") && node.typeAnnotation.type === "TypeAnnotation" && node.typeAnnotation.typeAnnotation.type !== "TSFunctionType") {
+        if ((parent.type === "TypeParameter" || parent.type === "VariableDeclarator" || parent.type === "TypeAnnotation" || parent.type === "GenericTypeAnnotation") && node.typeAnnotation.type === "TypeAnnotation" && node.typeAnnotation.typeAnnotation.type !== "TSFunctionType") {
           return false;
         }
         // Delegate to inner TSParenthesizedType
@@ -1639,7 +1660,7 @@ FastPath$1.prototype.needsParens = function (options) {
       }
 
     case "YieldExpression":
-      if (parent.type === "UnaryExpression" || parent.type === "AwaitExpression" || parent.type === "TSAsExpression") {
+      if (parent.type === "UnaryExpression" || parent.type === "AwaitExpression" || parent.type === "TSAsExpression" || parent.type === "TSNonNullExpression") {
         return true;
       }
     // else fallthrough
@@ -1651,6 +1672,7 @@ FastPath$1.prototype.needsParens = function (options) {
         case "SpreadElement":
         case "SpreadProperty":
         case "TSAsExpression":
+        case "TSNonNullExpression":
           return true;
 
         case "MemberExpression":
@@ -1800,6 +1822,173 @@ function isStatement(node) {
 }
 
 var fastPath = FastPath$1;
+
+function traverseDoc(doc, onEnter, onExit, shouldTraverseConditionalGroups) {
+  function traverseDocRec(doc) {
+    var shouldRecurse = true;
+    if (onEnter) {
+      if (onEnter(doc) === false) {
+        shouldRecurse = false;
+      }
+    }
+
+    if (shouldRecurse) {
+      if (doc.type === "concat" || doc.type === "fill") {
+        for (var i = 0; i < doc.parts.length; i++) {
+          traverseDocRec(doc.parts[i]);
+        }
+      } else if (doc.type === "if-break") {
+        if (doc.breakContents) {
+          traverseDocRec(doc.breakContents);
+        }
+        if (doc.flatContents) {
+          traverseDocRec(doc.flatContents);
+        }
+      } else if (doc.type === "group" && doc.expandedStates) {
+        if (shouldTraverseConditionalGroups) {
+          doc.expandedStates.forEach(traverseDocRec);
+        } else {
+          traverseDocRec(doc.contents);
+        }
+      } else if (doc.contents) {
+        traverseDocRec(doc.contents);
+      }
+    }
+
+    if (onExit) {
+      onExit(doc);
+    }
+  }
+
+  traverseDocRec(doc);
+}
+
+function mapDoc(doc, func) {
+  doc = func(doc);
+
+  if (doc.type === "concat" || doc.type === "fill") {
+    return Object.assign({}, doc, {
+      parts: doc.parts.map(function (d) {
+        return mapDoc(d, func);
+      })
+    });
+  } else if (doc.type === "if-break") {
+    return Object.assign({}, doc, {
+      breakContents: doc.breakContents && mapDoc(doc.breakContents, func),
+      flatContents: doc.flatContents && mapDoc(doc.flatContents, func)
+    });
+  } else if (doc.contents) {
+    return Object.assign({}, doc, { contents: mapDoc(doc.contents, func) });
+  }
+  return doc;
+}
+
+function findInDoc(doc, fn, defaultValue) {
+  var result = defaultValue;
+  var hasStopped = false;
+  traverseDoc(doc, function (doc) {
+    var maybeResult = fn(doc);
+    if (maybeResult !== undefined) {
+      hasStopped = true;
+      result = maybeResult;
+    }
+    if (hasStopped) {
+      return false;
+    }
+  });
+  return result;
+}
+
+function isEmpty$1(n) {
+  return typeof n === "string" && n.length === 0;
+}
+
+function isLineNext$1(doc) {
+  return findInDoc(doc, function (doc) {
+    if (typeof doc === "string") {
+      return false;
+    }
+    if (doc.type === "line") {
+      return true;
+    }
+  }, false);
+}
+
+function willBreak$1(doc) {
+  return findInDoc(doc, function (doc) {
+    if (doc.type === "group" && doc.break) {
+      return true;
+    }
+    if (doc.type === "line" && doc.hard) {
+      return true;
+    }
+    if (doc.type === "break-parent") {
+      return true;
+    }
+  }, false);
+}
+
+function breakParentGroup(groupStack) {
+  if (groupStack.length > 0) {
+    var parentGroup = groupStack[groupStack.length - 1];
+    // Breaks are not propagated through conditional groups because
+    // the user is expected to manually handle what breaks.
+    if (!parentGroup.expandedStates) {
+      parentGroup.break = true;
+    }
+  }
+  return null;
+}
+
+function propagateBreaks(doc) {
+  var alreadyVisited = new Map();
+  var groupStack = [];
+  traverseDoc(doc, function (doc) {
+    if (doc.type === "break-parent") {
+      breakParentGroup(groupStack);
+    }
+    if (doc.type === "group") {
+      groupStack.push(doc);
+      if (alreadyVisited.has(doc)) {
+        return false;
+      }
+      alreadyVisited.set(doc, true);
+    }
+  }, function (doc) {
+    if (doc.type === "group") {
+      var _group = groupStack.pop();
+      if (_group.break) {
+        breakParentGroup(groupStack);
+      }
+    }
+  },
+  /* shouldTraverseConditionalGroups */true);
+}
+
+function removeLines(doc) {
+  // Force this doc into flat mode by statically converting all
+  // lines into spaces (or soft lines into nothing). Hard lines
+  // should still output because there's too great of a chance
+  // of breaking existing assumptions otherwise.
+  return mapDoc(doc, function (d) {
+    if (d.type === "line" && !d.hard) {
+      return d.soft ? "" : " ";
+    } else if (d.type === "if-break") {
+      return d.flatContents || "";
+    }
+    return d;
+  });
+}
+
+var docUtils$2 = {
+  isEmpty: isEmpty$1,
+  willBreak: willBreak$1,
+  isLineNext: isLineNext$1,
+  traverseDoc: traverseDoc,
+  mapDoc: mapDoc,
+  propagateBreaks: propagateBreaks,
+  removeLines: removeLines
+};
 
 function createCommonjsModule(fn, module) {
   return module = { exports: {} }, fn(module, module.exports), module.exports;
@@ -2799,23 +2988,11 @@ var index$2 = createCommonjsModule(function (module, exports) {
 var path$1 = path;
 
 var parsers = {
-  get flow() {
-    return eval("require")("./parser-flow");
-  },
-  get graphql() {
-    return eval("require")("./parser-graphql");
-  },
-  get parse5() {
-    return eval("require")("./parser-parse5");
-  },
   get babylon() {
     return eval("require")("./parser-babylon");
   },
-  get typescript() {
-    return eval("require")("./parser-typescript");
-  },
-  get postcss() {
-    return eval("require")("./parser-postcss");
+  get json() {
+    return eval("require")("./parser-json");
   }
 };
 
@@ -2860,20 +3037,21 @@ function parse(text, opts) {
 var parser$1 = { parse: parse };
 
 var util$6 = util$2;
+var docUtils$1 = docUtils$2;
 var docBuilders$4 = docBuilders$1;
 var indent$3 = docBuilders$4.indent;
 var hardline$3 = docBuilders$4.hardline;
 var softline$2 = docBuilders$4.softline;
 var concat$3 = docBuilders$4.concat;
 
-function printSubtree(subtreeParser, options) {
+function printSubtree(subtreeParser, options, expressionDocs) {
   var next = Object.assign({}, { transformDoc: function transformDoc(doc) {
       return doc;
     } }, subtreeParser);
   next.options = Object.assign({}, options, next.options);
   var ast = parser$1.parse(next.text, next.options);
   var nextDoc = printer.printAstToDoc(ast, next.options);
-  return next.transformDoc(nextDoc);
+  return next.transformDoc(nextDoc, expressionDocs);
 }
 
 /**
@@ -2894,44 +3072,31 @@ function fromBabylonFlowOrTypeScript(path$$1) {
   var node = path$$1.getValue();
 
   switch (node.type) {
+    case "TemplateLiteral":
+      {
+        var isCss = [isStyledJsx, isStyledComponents].some(function (isIt) {
+          return isIt(path$$1);
+        });
+
+        if (isCss) {
+          // Get full template literal with expressions replaced by placeholders
+          var rawQuasis = node.quasis.map(function (q) {
+            return q.value.raw;
+          });
+          var text = rawQuasis.join("@prettier-placeholder");
+          return {
+            options: { parser: "postcss" },
+            transformDoc: transformCssDoc,
+            text: text
+          };
+        }
+
+        break;
+      }
     case "TemplateElement":
       {
         var parent = path$$1.getParentNode();
         var parentParent = path$$1.getParentNode(1);
-        var parentParentParent = path$$1.getParentNode(2);
-
-        /*
-         * styled-jsx:
-         * ```jsx
-         * <style jsx>{`div{color:red}`}</style>
-         * ```
-         */
-        if (parentParentParent && parent.quasis && parent.quasis.length === 1 && parentParent.type === "JSXExpressionContainer" && parentParentParent.type === "JSXElement" && parentParentParent.openingElement.name.name === "style" && parentParentParent.openingElement.attributes.some(function (attribute) {
-          return attribute.name.name === "jsx";
-        })) {
-          return {
-            options: { parser: "postcss" },
-            transformDoc: function transformDoc(doc) {
-              return concat$3([indent$3(concat$3([softline$2, stripTrailingHardline(doc)])), softline$2]);
-            },
-            text: parent.quasis[0].value.raw
-          };
-        }
-
-        /*
-         * styled-components:
-         * styled.button`color: red`
-         * Foo.extend`color: red`
-         */
-        if (parentParent && parentParent.type === "TaggedTemplateExpression" && parent.quasis.length === 1 && parentParent.tag.type === "MemberExpression" && (parentParent.tag.object.name === "styled" || /^[A-Z]/.test(parentParent.tag.object.name) && parentParent.tag.property.name === "extend")) {
-          return {
-            options: { parser: "postcss" },
-            transformDoc: function transformDoc(doc) {
-              return concat$3([indent$3(concat$3([softline$2, stripTrailingHardline(doc)])), softline$2]);
-            },
-            text: parent.quasis[0].value.raw
-          };
-        }
 
         /*
          * react-relay and graphql-tag
@@ -2939,11 +3104,7 @@ function fromBabylonFlowOrTypeScript(path$$1) {
          * graphql.experimental`...`
          * gql`...`
          */
-        if (parentParent && parentParent.type === "TaggedTemplateExpression" && parent.quasis.length === 1 && (
-        // ((parentParent.tag.type === "MemberExpression" &&
-        //   parentParent.tag.object.name === "Relay" &&
-        //   parentParent.tag.property.name === "QL") ||
-        parentParent.tag.type === "MemberExpression" && parentParent.tag.object.name === "graphql" && parentParent.tag.property.name === "experimental" || parentParent.tag.type === "Identifier" && (parentParent.tag.name === "gql" || parentParent.tag.name === "graphql"))) {
+        if (parentParent && parentParent.type === "TaggedTemplateExpression" && parent.quasis.length === 1 && (parentParent.tag.type === "MemberExpression" && parentParent.tag.object.name === "graphql" && parentParent.tag.property.name === "experimental" || parentParent.tag.type === "Identifier" && (parentParent.tag.name === "gql" || parentParent.tag.name === "graphql"))) {
           return {
             options: { parser: "graphql" },
             transformDoc: function transformDoc(doc) {
@@ -3001,7 +3162,91 @@ function fromHtmlParser2(path$$1, options) {
 
         break;
       }
+
+    case "attribute":
+      {
+        /*
+         * Vue binding sytax: JS expressions
+         * :class="{ 'some-key': value }"
+         * v-bind:id="'list-' + id"
+         * v-if="foo && !bar"
+         * @click="someFunction()"
+         */
+        if (/(^@)|(^v-)|:/.test(node.key) && !/^\w+$/.test(node.value)) {
+          return {
+            text: node.value,
+            options: {
+              parser: parseJavaScriptExpression,
+              // Use singleQuote since HTML attributes use double-quotes.
+              // TODO(azz): We still need to do an entity escape on the attribute.
+              singleQuote: true
+            },
+            transformDoc: function transformDoc(doc) {
+              return concat$3([node.key, '="', util$6.hasNewlineInRange(node.value, 0, node.value.length) ? doc : docUtils$1.removeLines(doc), '"']);
+            }
+          };
+        }
+      }
   }
+}
+
+function transformCssDoc(quasisDoc, expressionDocs) {
+  var newDoc = replacePlaceholders(quasisDoc, expressionDocs);
+  if (!newDoc) {
+    throw new Error("Couldn't insert all the expressions");
+  }
+  return concat$3(["`", indent$3(concat$3([softline$2, stripTrailingHardline(newDoc)])), softline$2, "`"]);
+}
+
+// Search all the placeholders in the quasisDoc tree
+// and replace them with the expression docs one by one
+// returns a new doc with all the placeholders replaced,
+// or null if it couldn't replace any expression
+function replacePlaceholders(quasisDoc, expressionDocs) {
+  if (!expressionDocs || !expressionDocs.length) {
+    return quasisDoc;
+  }
+
+  var expressions = expressionDocs.slice();
+  var newDoc = docUtils$1.mapDoc(quasisDoc, function (doc) {
+    if (!doc || !doc.parts || !doc.parts.length) {
+      return doc;
+    }
+    var parts = doc.parts;
+    if (parts.length > 1 && parts[0] === "@" && typeof parts[1] === "string" && parts[1].startsWith("prettier-placeholder")) {
+      // If placeholder is split, join it
+      var at = parts[0];
+      var placeholder = parts[1];
+      var rest = parts.slice(2);
+      parts = [at + placeholder].concat(rest);
+    }
+    if (typeof parts[0] === "string" && parts[0].startsWith("@prettier-placeholder")) {
+      var _placeholder = parts[0];
+      var _rest = parts.slice(1);
+
+      // When the expression has a suffix appended, like:
+      // animation: linear ${time}s ease-out;
+      var suffix = _placeholder.slice("@prettier-placeholder".length);
+
+      var expression = expressions.shift();
+      parts = ["${", expression, "}" + suffix].concat(_rest);
+    }
+    return Object.assign({}, doc, {
+      parts: parts
+    });
+  });
+
+  return expressions.length === 0 ? newDoc : null;
+}
+
+function parseJavaScriptExpression(text, parsers) {
+  // Force parsing as an expression
+  var ast = parsers.babylon('(' + text + ')');
+  // Extract expression from the declaration
+  return {
+    type: "File",
+    program: ast.program.body[0].expression
+  };
 }
 
 function getText(options, node) {
@@ -3010,166 +3255,41 @@ function getText(options, node) {
 
 function stripTrailingHardline(doc) {
   // HACK remove ending hardline, original PR: #1984
-  if (doc.type === "concat" && doc.parts[0].type === "concat" && doc.parts[0].parts.length === 2 && doc.parts[0].parts[1] === hardline$3) {
+  if (doc.type === "concat" && doc.parts[0].type === "concat" && doc.parts[0].parts.length === 2 &&
+  // doc.parts[0].parts[1] === hardline :
+  doc.parts[0].parts[1].type === "concat" && doc.parts[0].parts[1].parts.length === 2 && doc.parts[0].parts[1].parts[0].hard && doc.parts[0].parts[1].parts[1].type === "break-parent") {
     return doc.parts[0].parts[0];
   }
   return doc;
 }
 
+/**
+ * Template literal in this context:
+ * <style jsx>{`div{color:red}`}</style>
+ */
+function isStyledJsx(path$$1) {
+  var node = path$$1.getValue();
+  var parent = path$$1.getParentNode();
+  var parentParent = path$$1.getParentNode(1);
+  return parentParent && node.quasis && parent.type === "JSXExpressionContainer" && parentParent.type === "JSXElement" && parentParent.openingElement.name.name === "style" && parentParent.openingElement.attributes.some(function (attribute) {
+    return attribute.name.name === "jsx";
+  });
+}
+
+/**
+ * Template literal in this context:
+ * styled.button`color: red`
+ * or
+ * Foo.extend`color: red`
+ */
+function isStyledComponents(path$$1) {
+  var parent = path$$1.getParentNode();
+  return parent && parent.type === "TaggedTemplateExpression" && parent.tag.type === "MemberExpression" && (parent.tag.object.name === "styled" || /^[A-Z]/.test(parent.tag.object.name) && parent.tag.property.name === "extend");
+}
+
 var multiparser$1 = {
   getSubtreeParser: getSubtreeParser,
   printSubtree: printSubtree
-};
-
-function traverseDoc(doc, onEnter, onExit, shouldTraverseConditionalGroups) {
-  function traverseDocRec(doc) {
-    var shouldRecurse = true;
-    if (onEnter) {
-      if (onEnter(doc) === false) {
-        shouldRecurse = false;
-      }
-    }
-
-    if (shouldRecurse) {
-      if (doc.type === "concat" || doc.type === "fill") {
-        for (var i = 0; i < doc.parts.length; i++) {
-          traverseDocRec(doc.parts[i]);
-        }
-      } else if (doc.type === "if-break") {
-        if (doc.breakContents) {
-          traverseDocRec(doc.breakContents);
-        }
-        if (doc.flatContents) {
-          traverseDocRec(doc.flatContents);
-        }
-      } else if (doc.type === "group" && doc.expandedStates) {
-        if (shouldTraverseConditionalGroups) {
-          doc.expandedStates.forEach(traverseDocRec);
-        } else {
-          traverseDocRec(doc.contents);
-        }
-      } else if (doc.contents) {
-        traverseDocRec(doc.contents);
-      }
-    }
-
-    if (onExit) {
-      onExit(doc);
-    }
-  }
-
-  traverseDocRec(doc);
-}
-
-function mapDoc(doc, func) {
-  doc = func(doc);
-
-  if (doc.type === "concat" || doc.type === "fill") {
-    return Object.assign({}, doc, {
-      parts: doc.parts.map(function (d) {
-        return mapDoc(d, func);
-      })
-    });
-  } else if (doc.type === "if-break") {
-    return Object.assign({}, doc, {
-      breakContents: doc.breakContents && mapDoc(doc.breakContents, func),
-      flatContents: doc.flatContents && mapDoc(doc.flatContents, func)
-    });
-  } else if (doc.contents) {
-    return Object.assign({}, doc, { contents: mapDoc(doc.contents, func) });
-  }
-  return doc;
-}
-
-function findInDoc(doc, fn, defaultValue) {
-  var result = defaultValue;
-  var hasStopped = false;
-  traverseDoc(doc, function (doc) {
-    var maybeResult = fn(doc);
-    if (maybeResult !== undefined) {
-      hasStopped = true;
-      result = maybeResult;
-    }
-    if (hasStopped) {
-      return false;
-    }
-  });
-  return result;
-}
-
-function isEmpty$1(n) {
-  return typeof n === "string" && n.length === 0;
-}
-
-function isLineNext$1(doc) {
-  return findInDoc(doc, function (doc) {
-    if (typeof doc === "string") {
-      return false;
-    }
-    if (doc.type === "line") {
-      return true;
-    }
-  }, false);
-}
-
-function willBreak$1(doc) {
-  return findInDoc(doc, function (doc) {
-    if (doc.type === "group" && doc.break) {
-      return true;
-    }
-    if (doc.type === "line" && doc.hard) {
-      return true;
-    }
-    if (doc.type === "break-parent") {
-      return true;
-    }
-  }, false);
-}
-
-function breakParentGroup(groupStack) {
-  if (groupStack.length > 0) {
-    var parentGroup = groupStack[groupStack.length - 1];
-    // Breaks are not propagated through conditional groups because
-    // the user is expected to manually handle what breaks.
-    if (!parentGroup.expandedStates) {
-      parentGroup.break = true;
-    }
-  }
-  return null;
-}
-
-function propagateBreaks(doc) {
-  var alreadyVisited = new Map();
-  var groupStack = [];
-  traverseDoc(doc, function (doc) {
-    if (doc.type === "break-parent") {
-      breakParentGroup(groupStack);
-    }
-    if (doc.type === "group") {
-      groupStack.push(doc);
-      if (alreadyVisited.has(doc)) {
-        return false;
-      }
-      alreadyVisited.set(doc, true);
-    }
-  }, function (doc) {
-    if (doc.type === "group") {
-      var _group = groupStack.pop();
-      if (_group.break) {
-        breakParentGroup(groupStack);
-      }
-    }
-  },
-  /* shouldTraverseConditionalGroups */true);
-}
-
-var docUtils$1 = {
-  isEmpty: isEmpty$1,
-  willBreak: willBreak$1,
-  isLineNext: isLineNext$1,
-  traverseDoc: traverseDoc,
-  mapDoc: mapDoc,
-  propagateBreaks: propagateBreaks
 };
 
 var docBuilders$5 = docBuilders$1;
@@ -3313,7 +3433,7 @@ var docBuilders$6 = docBuilders$1;
 var concat$5 = docBuilders$6.concat;
 var join$4 = docBuilders$6.join;
 var hardline$5 = docBuilders$6.hardline;
-// const line = docBuilders.line;
+var line$3 = docBuilders$6.line;
 var softline$4 = docBuilders$6.softline;
 var group$3 = docBuilders$6.group;
 var indent$5 = docBuilders$6.indent;
@@ -3350,7 +3470,7 @@ function genericPrint$2(path$$1, options, print) {
   switch (n.type) {
     case "root":
       {
-        return concat$5(path$$1.map(print, "children"));
+        return printChildren(path$$1, print);
       }
     case "directive":
       {
@@ -3365,37 +3485,45 @@ function genericPrint$2(path$$1, options, print) {
     case "tag":
       {
         var selfClose = voidTags[n.name] ? ">" : " />";
-
-        var children = [];
-        path$$1.each(function (childPath) {
-          var child = childPath.getValue();
-          if (child.type !== "text") {
-            children.push(softline$4);
-          }
-          children.push(childPath.call(print));
-        }, "children");
+        var children = printChildren(path$$1, print);
 
         var _hasNewline = util$7.hasNewlineInRange(options.originalText, util$7.locStart(n), util$7.locEnd(n));
 
-        return group$3(concat$5([_hasNewline ? hardline$5 : "", "<", n.name, printAttributes(n.attribs), n.children.length ? ">" : selfClose, n.name.toLowerCase() === "html" ? concat$5(children) : indent$5(concat$5(children)), n.children.length ? concat$5([softline$4, "</", n.name, ">"]) : ""]));
+        return group$3(concat$5([_hasNewline ? hardline$5 : "", "<", n.name, printAttributes(path$$1, print), n.children.length ? ">" : selfClose, n.name.toLowerCase() === "html" ? concat$5([hardline$5, children]) : indent$5(children), n.children.length ? concat$5([softline$4, "</", n.name, ">"]) : hardline$5]));
       }
     case "comment":
       {
         return concat$5(["<!-- ", n.data.trim(), " -->"]);
       }
+    case "attribute":
+      {
+        if (!n.value) {
+          return n.key;
+        }
+        return concat$5([n.key, '="', n.value, '"']);
+      }
+
     default:
       throw new Error("unknown htmlparser2 type: " + n.type);
   }
 }
 
-function printAttributes(attribs) {
-  var attributeKeys = Object.keys(attribs);
-  return concat$5([attributeKeys.length ? " " : "", join$4(" ", attributeKeys.map(function (name) {
-    if (attribs[name] === "") {
-      return name;
+function printAttributes(path$$1, print) {
+  var node = path$$1.getValue();
+
+  return concat$5([node.attributes.length ? " " : "", indent$5(join$4(line$3, path$$1.map(print, "attributes")))]);
+}
+
+function printChildren(path$$1, print) {
+  var children = [];
+  path$$1.each(function (childPath) {
+    var child = childPath.getValue();
+    if (child.type !== "text") {
+      children.push(hardline$5);
     }
-    return concat$5([name, '="', attribs[name], '"']);
-  }))]);
+    children.push(childPath.call(print));
+  }, "children");
+  return concat$5(children);
 }
 
 var printerHtmlparser2 = genericPrint$2;
@@ -3404,11 +3532,14 @@ var util$8 = util$2;
 var docBuilders$7 = docBuilders$1;
 var concat$6 = docBuilders$7.concat;
 var join$5 = docBuilders$7.join;
-var line$3 = docBuilders$7.line;
+var line$4 = docBuilders$7.line;
 var hardline$6 = docBuilders$7.hardline;
 var softline$5 = docBuilders$7.softline;
 var group$4 = docBuilders$7.group;
 var indent$6 = docBuilders$7.indent;
+
+var docUtils$4 = docUtils$2;
+var removeLines$1 = docUtils$4.removeLines;
 
 function genericPrint$3(path$$1, options, print) {
   var n = path$$1.getValue();
@@ -3454,8 +3585,9 @@ function genericPrint$3(path$$1, options, print) {
         // less files with less, but we can hardcode this to work with scss as
         // well.
         var isValueExtend = n.value.type === "value-root" && n.value.group.type === "value-value" && n.value.group.group.type === "value-func" && n.value.group.group.value === "extend";
+        var isComposed = n.value.type === "value-root" && n.value.group.type === "value-value" && n.prop === "composes";
 
-        return concat$6([n.raws.before.replace(/[\s;]/g, ""), n.prop, ":", isValueExtend ? "" : " ", path$$1.call(print, "value"), n.important ? " !important" : "", n.nodes ? concat$6([" {", indent$6(concat$6([softline$5, printNodeSequence(path$$1, options, print)])), softline$5, "}"]) : ";"]);
+        return concat$6([n.raws.before.replace(/[\s;]/g, ""), n.prop, ":", isValueExtend ? "" : " ", isComposed ? removeLines$1(path$$1.call(print, "value")) : path$$1.call(print, "value"), n.important ? " !important" : "", n.nodes ? concat$6([" {", indent$6(concat$6([softline$5, printNodeSequence(path$$1, options, print)])), softline$5, "}"]) : ";"]);
       }
     case "css-atrule":
       {
@@ -3551,7 +3683,7 @@ function genericPrint$3(path$$1, options, print) {
       {
         if (n.value === "+" || n.value === ">" || n.value === "~") {
           var parent = path$$1.getParentNode();
-          var leading = parent.type === "selector-selector" && parent.nodes[0] === n ? "" : line$3;
+          var leading = parent.type === "selector-selector" && parent.nodes[0] === n ? "" : line$4;
           return concat$6([leading, n.value, " "]);
         }
         return n.value;
@@ -3587,7 +3719,7 @@ function genericPrint$3(path$$1, options, print) {
             if (n.groups[i + 1].type === "value-operator" && ["+", "-", "/", "*", "%"].indexOf(n.groups[i + 1].value) !== -1) {
               _parts.push(" ");
             } else {
-              _parts.push(line$3);
+              _parts.push(line$4);
             }
           }
         }
@@ -3604,10 +3736,10 @@ function genericPrint$3(path$$1, options, print) {
         }
 
         if (!n.open) {
-          return group$4(indent$6(join$5(concat$6([",", line$3]), path$$1.map(print, "groups"))));
+          return group$4(indent$6(join$5(concat$6([",", line$4]), path$$1.map(print, "groups"))));
         }
 
-        return group$4(concat$6([n.open ? path$$1.call(print, "open") : "", indent$6(concat$6([softline$5, join$5(concat$6([",", line$3]), path$$1.map(print, "groups"))])), softline$5, n.close ? path$$1.call(print, "close") : ""]));
+        return group$4(concat$6([n.open ? path$$1.call(print, "open") : "", indent$6(concat$6([softline$5, join$5(concat$6([",", line$4]), path$$1.map(print, "groups"))])), softline$5, n.close ? path$$1.call(print, "close") : ""]));
       }
     case "value-value":
       {
@@ -3620,7 +3752,7 @@ function genericPrint$3(path$$1, options, print) {
     case "value-paren":
       {
         if (n.raws.before !== "") {
-          return concat$6([line$3, n.value]);
+          return concat$6([line$4, n.value]);
         }
         return n.value;
       }
@@ -3717,7 +3849,7 @@ var breakParent$2 = docBuilders$3.breakParent;
 var lineSuffixBoundary$1 = docBuilders$3.lineSuffixBoundary;
 var addAlignmentToDoc$1 = docBuilders$3.addAlignmentToDoc;
 
-var docUtils = docUtils$1;
+var docUtils = docUtils$2;
 var willBreak = docUtils.willBreak;
 var isLineNext = docUtils.isLineNext;
 var isEmpty = docUtils.isEmpty;
@@ -3772,7 +3904,8 @@ function genericPrint(path$$1, options, printPath, args) {
     var next = multiparser.getSubtreeParser(path$$1, options);
     if (next) {
       try {
-        return multiparser.printSubtree(next, options);
+        var expressionDocs = node.expressions ? path$$1.map(printPath, "expressions") : [];
+        return multiparser.printSubtree(next, options, expressionDocs);
       } catch (error) {
         if (process.env.PRETTIER_DEBUG) {
           console.error(error);
@@ -4143,6 +4276,10 @@ function genericPrintNoParens(path$$1, options, print, args) {
       }
 
       return path$$1.call(print, "id");
+    case "TSExportAssigment":
+      {
+        return concat$2(["export = ", path$$1.call(print, "expression"), semi]);
+      }
     case "ExportDeclaration":
     case "ExportDefaultDeclaration":
     case "ExportNamedDeclaration":
@@ -4197,7 +4334,9 @@ function genericPrintNoParens(path$$1, options, print, args) {
           }
 
           parts.push(" ", "from ");
-        } else if (n.importKind && n.importKind === "type") {
+        } else if (n.importKind && n.importKind === "type" ||
+        // import {} from 'x'
+        /{\s*}/.test(options.originalText.slice(util$4.locStart(n), util$4.locStart(n.source)))) {
           parts.push("{} from ");
         }
 
@@ -4304,7 +4443,7 @@ function genericPrintNoParens(path$$1, options, print, args) {
     case "TSTypeLiteral":
       {
         var isTypeAnnotation = n.type === "ObjectTypeAnnotation";
-        var shouldBreak = n.type !== "ObjectPattern" && util$4.hasNewlineInRange(options.originalText, util$4.locStart(n), util$4.locEnd(n));
+        var shouldBreak = n.type === "TSInterfaceBody" || n.type !== "ObjectPattern" && util$4.hasNewlineInRange(options.originalText, util$4.locStart(n), util$4.locEnd(n));
         var separator = n.type === "TSInterfaceBody" || n.type === "TSTypeLiteral" ? ifBreak$1(semi, ";") : ",";
         var fields = [];
         var leftBrace = n.exact ? "{|" : "{";
@@ -4746,11 +4885,6 @@ function genericPrintNoParens(path$$1, options, print, args) {
 
       return concat$2(parts);
     case "JSXIdentifier":
-      // Can be removed when this is fixed:
-      // https://github.com/eslint/typescript-eslint-parser/issues/307
-      if (!n.name) {
-        return "this";
-      }
       return "" + n.name;
     case "JSXNamespacedName":
       return join$2(":", [path$$1.call(print, "namespace"), path$$1.call(print, "name")]);
@@ -5125,6 +5259,7 @@ function genericPrintNoParens(path$$1, options, print, args) {
       }
     case "NullableTypeAnnotation":
       return concat$2(["?", path$$1.call(print, "typeAnnotation")]);
+    case "TSNullKeyword":
     case "NullLiteralTypeAnnotation":
       return "null";
     case "ThisTypeAnnotation":
@@ -5365,9 +5500,9 @@ function genericPrintNoParens(path$$1, options, print, args) {
           parts.push("new ");
         }
 
-        parts.push(printFunctionParams(path$$1, print, options,
+        parts.push(group$1(printFunctionParams(path$$1, print, options,
         /* expandArg */false,
-        /* printTypeParams */true));
+        /* printTypeParams */true)));
 
         if (n.typeAnnotation) {
           var isType = n.type === "TSConstructorType";
@@ -5398,9 +5533,7 @@ function genericPrintNoParens(path$$1, options, print, args) {
       return group$1(concat$2(parts));
     case "TSNamespaceExportDeclaration":
       if (n.declaration) {
-        // Temporary fix until https://github.com/eslint/typescript-eslint-parser/issues/263
-        var isDefault = options.originalText.slice(util$4.locStart(n), util$4.locStart(n.declaration)).match(/\bdefault\b/);
-        parts.push("export ", isDefault ? "default " : "", path$$1.call(print, "declaration"));
+        parts.push("export ", n.default ? "default " : "", path$$1.call(print, "declaration"));
       } else {
         parts.push("export as namespace ", path$$1.call(print, "name"));
 
@@ -5482,6 +5615,8 @@ function genericPrintNoParens(path$$1, options, print, args) {
       return path$$1.call(function (bodyPath) {
         return printStatementSequence(bodyPath, options, print);
       }, "body");
+    case "json-identifier":
+      return '"' + n.value + '"';
 
     default:
       throw new Error("unknown type: " + JSON.stringify(n.type));
@@ -5728,7 +5863,7 @@ function printFunctionParams(path$$1, print, options, expandArg, printTypeParams
   //   })                    ) => {
   //                         })
   if (expandArg) {
-    return group$1(concat$2([removeLines(typeParams), "(", join$2(", ", printed.map(removeLines)), ")"]));
+    return group$1(concat$2([docUtils.removeLines(typeParams), "(", join$2(", ", printed.map(docUtils.removeLines)), ")"]));
   }
 
   // Single object destructuring should hug
@@ -5834,12 +5969,7 @@ function printExportDeclaration(path$$1, options, print) {
   var parts = ["export "];
 
   if (decl["default"] || decl.type === "ExportDefaultDeclaration") {
-    // Temp fix, delete after https://github.com/eslint/typescript-eslint-parser/issues/304
-    if (decl.declaration && /=/.test(options.originalText.slice(util$4.locStart(decl), util$4.locStart(decl.declaration)))) {
-      parts.push("= ");
-    } else {
-      parts.push("default ");
-    }
+    parts.push("default ");
   }
 
   parts.push(comments$3.printDanglingComments(path$$1, options, /* sameIndent */true));
@@ -5847,7 +5977,7 @@ function printExportDeclaration(path$$1, options, print) {
   if (decl.declaration) {
     parts.push(path$$1.call(print, "declaration"));
 
-    if (decl.type === "ExportDefaultDeclaration" && decl.declaration.type !== "ClassDeclaration" && decl.declaration.type !== "FunctionDeclaration" && decl.declaration.type !== "TSAbstractClassDeclaration") {
+    if (decl.type === "ExportDefaultDeclaration" && decl.declaration.type !== "ClassDeclaration" && decl.declaration.type !== "FunctionDeclaration" && decl.declaration.type !== "TSAbstractClassDeclaration" && decl.declaration.type !== "TSNamespaceFunctionDeclaration") {
       parts.push(semi);
     }
   } else {
@@ -6636,7 +6766,7 @@ function nodeStr(node, options, isFlowOrTypeScriptDirectiveLiteral) {
     canChangeDirectiveQuotes = true;
   }
 
-  var enclosingQuote = shouldUseAlternateQuote ? alternate.quote : preferred.quote;
+  var enclosingQuote = options.parser === "json" ? double.quote : shouldUseAlternateQuote ? alternate.quote : preferred.quote;
 
   // Directives are exact code unit sequences, which means that you can't
   // change the escape sequences they use.
@@ -6916,7 +7046,7 @@ function shouldHugType(node) {
 
   if (node.type === "UnionTypeAnnotation" || node.type === "TSUnionType") {
     var voidCount = node.types.filter(function (n) {
-      return n.type === "VoidTypeAnnotation" || n.type === "TSVoidKeyword" || n.type === "NullLiteralTypeAnnotation" || n.type === "Literal" && n.value === null;
+      return n.type === "VoidTypeAnnotation" || n.type === "TSVoidKeyword" || n.type === "NullLiteralTypeAnnotation" || n.type === "TSNullKeyword";
     }).length;
 
     var objectCount = node.types.filter(function (n) {
@@ -6977,21 +7107,6 @@ function isStringLiteral(node) {
   return node.type === "StringLiteral" || node.type === "Literal" && typeof node.value === "string";
 }
 
-function removeLines(doc) {
-  // Force this doc into flat mode by statically converting all
-  // lines into spaces (or soft lines into nothing). Hard lines
-  // should still output because there's too great of a chance
-  // of breaking existing assumptions otherwise.
-  return docUtils.mapDoc(doc, function (d) {
-    if (d.type === "line" && !d.hard) {
-      return d.soft ? "" : " ";
-    } else if (d.type === "if-break") {
-      return d.flatContents || "";
-    }
-    return d;
-  });
-}
-
 function isObjectType(n) {
   return n.type === "ObjectTypeAnnotation" || n.type === "TSTypeLiteral";
 }
@@ -7017,7 +7132,7 @@ function printAstToDoc$1(ast, options, addAlignmentSize) {
   if (addAlignmentSize > 0) {
     // Add a hardline to make the indents take effect
     // It should be removed in index.js format()
-    doc = addAlignmentToDoc$1(removeLines(concat$2([hardline$2, doc])), addAlignmentSize, options.tabWidth);
+    doc = addAlignmentToDoc$1(docUtils.removeLines(concat$2([hardline$2, doc])), addAlignmentSize, options.tabWidth);
   }
   docUtils.propagateBreaks(doc);
   return doc;
@@ -8656,7 +8771,16 @@ var index$26 = createCommonjsModule(function (module) {
         magenta: [35, 39],
         cyan: [36, 39],
         white: [37, 39],
-        gray: [90, 39]
+        gray: [90, 39],
+
+        // Bright color
+        redBright: [91, 39],
+        greenBright: [92, 39],
+        yellowBright: [93, 39],
+        blueBright: [94, 39],
+        magentaBright: [95, 39],
+        cyanBright: [96, 39],
+        whiteBright: [97, 39]
       },
       bgColor: {
         bgBlack: [40, 49],
@@ -8666,11 +8790,21 @@ var index$26 = createCommonjsModule(function (module) {
         bgBlue: [44, 49],
         bgMagenta: [45, 49],
         bgCyan: [46, 49],
-        bgWhite: [47, 49]
+        bgWhite: [47, 49],
+
+        // Bright color
+        bgBlackBright: [100, 49],
+        bgRedBright: [101, 49],
+        bgGreenBright: [102, 49],
+        bgYellowBright: [103, 49],
+        bgBlueBright: [104, 49],
+        bgMagentaBright: [105, 49],
+        bgCyanBright: [106, 49],
+        bgWhiteBright: [107, 49]
       }
     };
 
-    // fix humans
+    // Fix humans
     styles.color.grey = styles.color.gray;
 
     Object.keys(styles).forEach(function (groupName) {
@@ -8679,10 +8813,12 @@ var index$26 = createCommonjsModule(function (module) {
       Object.keys(group).forEach(function (styleName) {
         var style = group[styleName];
 
-        styles[styleName] = group[styleName] = {
+        styles[styleName] = {
           open: '\x1B[' + style[0] + 'm',
           close: '\x1B[' + style[1] + 'm'
         };
+
+        group[styleName] = styles[styleName];
       });
 
       Object.defineProperty(styles, groupName, {
@@ -8885,7 +9021,7 @@ function isHTMLElement(value) {
   return value !== undefined && value !== null && (value.nodeType === 1 || value.nodeType === 3 || value.nodeType === 8) && value.constructor !== undefined && value.constructor.name !== undefined && HTML_ELEMENT_REGEXP.test(value.constructor.name);
 }
 
-function printChildren(flatChildren, print, indent, colors, opts) {
+function printChildren$1(flatChildren, print, indent, colors, opts) {
   return flatChildren.map(function (node) {
     if ((typeof node === 'undefined' ? 'undefined' : _typeof(node)) === 'object') {
       return print(node, print, indent, colors, opts);
@@ -8933,7 +9069,7 @@ var print$3 = function print$3(element, print, indent, opts, colors) {
 
   var closeInNewLine = hasAttributes && !opts.min;
   if (flatChildren.length) {
-    var children = printChildren(flatChildren, print, indent, colors, opts);
+    var children = printChildren$1(flatChildren, print, indent, colors, opts);
     result += colors.tag.open + (closeInNewLine ? '\n' : '') + '>' + colors.tag.close + opts.edgeSpacing + indent(children) + opts.edgeSpacing + colors.tag.open + '</' + elementName + '>' + colors.tag.close;
   } else {
     result += colors.tag.open + (closeInNewLine ? '\n' : ' ') + '/>' + colors.tag.close;
@@ -9119,7 +9255,7 @@ var escapeHTML$2 = escapeHTML_1; /**
   }
 }
 
-function printChildren$1(flatChildren, print, indent, colors, opts) {
+function printChildren$2(flatChildren, print, indent, colors, opts) {
   return flatChildren.map(function (node) {
     if ((typeof node === 'undefined' ? 'undefined' : _typeof(node)) === 'object') {
       return print(node, print, indent, colors, opts);
@@ -9176,7 +9312,7 @@ var print$10 = function print$10(element, print, indent, opts, colors) {
     traverseChildren(opaqueChildren, function (child) {
       flatChildren.push(child);
     });
-    var children = printChildren$1(flatChildren, print, indent, colors, opts);
+    var children = printChildren$2(flatChildren, print, indent, colors, opts);
     result += colors.tag.open + (closeInNewLine ? '\n' : '') + '>' + colors.tag.close + opts.edgeSpacing + indent(children) + opts.edgeSpacing + colors.tag.open + '</' + elementName + '>' + colors.tag.close;
   } else {
     result += colors.tag.open + (closeInNewLine ? '\n' : ' ') + '/>' + colors.tag.close;
@@ -9199,7 +9335,7 @@ var escapeHTML$3 = escapeHTML_1; /**
                                                * of patent rights can be found in the PATENTS file in the same directory.
                                                *
                                                * 
-                                               */var reactTestInstance = Symbol.for('react.test.json');function printChildren$2(children, print, indent, colors, opts) {
+                                               */var reactTestInstance = Symbol.for('react.test.json');function printChildren$3(children, print, indent, colors, opts) {
   return children.map(function (child) {
     return printInstance(child, print, indent, colors, opts);
   }).join(opts.edgeSpacing);
@@ -9238,7 +9374,7 @@ function printInstance(instance, print, indent, colors, opts) {
   }
 
   if (instance.children) {
-    var children = printChildren$2(instance.children, print, indent, colors, opts);
+    var children = printChildren$3(instance.children, print, indent, colors, opts);
 
     result += colors.tag.open + (closeInNewLine ? '\n' : '') + '>' + colors.tag.close + opts.edgeSpacing + indent(children) + opts.edgeSpacing + colors.tag.open + '</' + instance.type + '>' + colors.tag.close;
   } else {
@@ -10201,6 +10337,8 @@ function normalize(options) {
     normalized.parser = "parse5";
   } else if (/\.(ts|tsx)$/.test(filepath)) {
     normalized.parser = "typescript";
+  } else if (/\.json$/.test(filepath)) {
+    normalized.parser = "json";
   }
 
   if (typeof normalized.trailingComma === "boolean") {
