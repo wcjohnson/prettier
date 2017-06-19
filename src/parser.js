@@ -3,23 +3,8 @@
 const path = require("path");
 
 const parsers = {
-  get flow() {
-    return eval("require")("./parser-flow");
-  },
-  get graphql() {
-    return eval("require")("./parser-graphql");
-  },
-  get parse5() {
-    return eval("require")("./parser-parse5");
-  },
   get babylon() {
     return eval("require")("./parser-babylon");
-  },
-  get typescript() {
-    return eval("require")("./parser-typescript");
-  },
-  get postcss() {
-    return eval("require")("./parser-postcss");
   },
   get json() {
     return eval("require")("./parser-json");
