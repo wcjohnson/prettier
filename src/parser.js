@@ -1,7 +1,5 @@
 "use strict";
 
-const path = require("path");
-
 const parsers = {
   get babylon() {
     return eval("require")("./parser-babylon");
@@ -19,11 +17,7 @@ function resolveParseFunction(opts) {
     if (parsers.hasOwnProperty(opts.parser)) {
       return parsers[opts.parser];
     }
-    try {
-      return eval("require")(path.resolve(process.cwd(), opts.parser));
-    } catch (err) {
-      throw new Error(`Couldn't resolve parser "${opts.parser}"`);
-    }
+    throw new Error(`Couldn't resolve parser "${opts.parser}"`);
   }
   return parsers.babylon;
 }

@@ -15,7 +15,7 @@ echo 'Bundling lib bin...';
 node_modules/.bin/rollup -c scripts/build/rollup.bin.config.js
 chmod +x ./dist/bin/prettier.js
 
-for parser in babylon flow graphql typescript parse5 json; do
+for parser in babylon json; do
   echo "Bundling lib $parser...";
   node_modules/.bin/rollup -c scripts/build/rollup.parser.config.js --environment parser:$parser
 done
@@ -40,7 +40,7 @@ echo 'Bundling docs babylon...';
 node_modules/.bin/rollup -c scripts/build/rollup.docs.config.js --environment filepath:parser-babylon.js
 node_modules/babel-cli/bin/babel.js docs/lib/parser-babylon.js --out-file docs/lib/parser-babylon.js --presets=es2015
 
-for parser in flow graphql typescript postcss parse5 json; do
+for parser in json; do
   echo "Bundling docs $parser...";
   node_modules/.bin/rollup -c scripts/build/rollup.docs.config.js --environment filepath:parser-$parser.js
 done
@@ -50,7 +50,7 @@ echo;
 ## --- Misc ---
 
 echo 'Remove eval'
-sed --in-place='' -e 's/eval("require")/require/g' dist/index.js dist/bin/prettier.js
+sed -e 's/eval("require")/require/g' dist/index.js > dist/bin/prettier.js
 
 echo 'Create prettier-version.js'
 node -p '`prettierVersion = "${require(".").version}";`' > docs/lib/prettier-version.js
